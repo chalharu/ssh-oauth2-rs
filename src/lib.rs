@@ -6,6 +6,7 @@ use pam::{
     module::{PamHandle, PamHooks},
     pam_try,
 };
+use qrcode::{render::unicode, QrCode};
 use reqwest::blocking::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
@@ -85,11 +86,20 @@ impl PamHooks for PamOauth2 {
 
         eprintln!("auth: {} {}", result.user_code, result.device_code);
 
+        let code = pam_try!(
+            QrCode::new(&result.verification_uri_complete),
+            PamResultCode::PAM_AUTH_ERR
+        );
+        let qr_code = code
+            .render::<unicode::Dense1x2>()
+            .dark_color(unicode::Dense1x2::Light)
+            .light_color(unicode::Dense1x2::Dark)
+            .build();
         pam_try!(conv.send(
             PAM_PROMPT_ECHO_OFF,
             &format!(
                 "\n\nPlease login at {} or scan the QRCode below:\n\n{}",
-                result.verification_uri_complete, ""
+                result.verification_uri_complete, qr_code
             )
         ));
         //pam_try!(conv.send(PAM_PROMPT_ECHO_ON, "Press Enter to continue:"));
