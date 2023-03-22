@@ -1,0 +1,10 @@
+Cargo.lock
+target/
+Dockerfile
+.devcontainer/
+.vscode/
+.git/
+.dockerignore
+.github/
+LICENSE
+.gitignore
