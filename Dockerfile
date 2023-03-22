@@ -10,7 +10,7 @@ RUN mkdir /root/src
 WORKDIR /root/src
 ADD ./ /root/src
 
-RUN cargo build --release && \
+RUN cargo build --release --quiet && \
     strip target/release/libpam_oauth2_df.so
 
 FROM alpine:3.17.2
