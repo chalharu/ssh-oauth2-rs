@@ -1,0 +1,17 @@
+[package]
+name = "pam-oauth2-df-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Mitsuharu Seki <mitsu1986@gmail.com>"]
+
+[lib]
+name = "pam_oauth2_df"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.70"
+base64 = "0.21.0"
+pam-bindings = "0.1.1"
+reqwest = { version = "0.11.15", features = ["blocking"] }
+serde = { version = "1.0.158", features = ["derive"] }
+serde_json = "1.0.94"

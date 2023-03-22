@@ -1,0 +1,4 @@
+auth required pam_env.so
+auth required libpam_oauth2_df.so device_authorize_url=DEVICE_AUTHORIZE_URL token_url=TOKEN_URL client_id=CLIENT_ID
+auth required pam_nologin.so successok
+session required pam_mkhomedir.so
