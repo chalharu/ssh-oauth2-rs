@@ -12,9 +12,9 @@ WORKDIR /root/src
 COPY docker/dummy.rs ./
 COPY Cargo.toml ./
 
-RUN sed -i 's#src/main.rs#dummy.rs#' Cargo.toml
+RUN sed -i 's#src/lib.rs#dummy.rs#' Cargo.toml
 RUN cargo build --release --config net.git-fetch-with-cli=true
-RUN sed -i 's#dummy.rs#src/main.rs#' Cargo.toml
+RUN sed -i 's#dummy.rs#src/lib.rs#' Cargo.toml
 
 COPY . .
 
