@@ -173,7 +173,13 @@ impl PamHooks for PamOauth2 {
 fn issue_post<S: Into<String>, T: DeserializeOwned>(url: &str, body: S) -> Result<T> {
     let client = Client::builder().timeout(Duration::from_secs(15)).build()?;
     let response = client.post(url).body(body.into()).send()?;
-    Ok(serde_json::from_str(response.text()?.as_str())?)
+    let text = response.text()?;
+    eprintln!("----------------------------------------------------------");
+    eprintln!("url: {}", url);
+    eprintln!("----------------------------------------------------------");
+    eprintln!("{}", text);
+    eprintln!("----------------------------------------------------------");
+    Ok(serde_json::from_str(text.as_str())?)
 }
 
 // #[cfg(test)]
