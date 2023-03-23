@@ -9,13 +9,13 @@ ENV RUSTFLAGS "-C target-feature=-crt-static"
 RUN mkdir -p /root/src/src
 WORKDIR /root/src
 
-ADD docker/dummy.rs src/lib.rs
-ADD Cargo.toml .
+COPY docker/dummy.rs src/lib.rs
+COPY Cargo.toml ./
 
-RUN cargo build --release --config net.git-fetch-with-cli=true && \
-    rm -rf /root/src/src
+RUN cargo build --release --config net.git-fetch-with-cli=true
+RUN rm -rf /root/src/src
 
-ADD . /root/src
+COPY ./ /root/src
 
 RUN cargo build --release --config net.git-fetch-with-cli=true && \
     strip target/release/libpam_oauth2_df.so
@@ -37,8 +37,8 @@ RUN apk --no-cache add openssh-server openssh-server-pam sed linux-pam libqrenco
   add_sshd_config ChallengeResponseAuthentication yes
 
 COPY --from=0 /root/src/target/release/libpam_oauth2_df.so /lib/security/
-ADD docker/pam_config /etc/pam.d/sshd.pam
-ADD docker/run.sh /
+COPY docker/pam_config /etc/pam.d/sshd.pam
+COPY docker/run.sh /
 
 EXPOSE 22
 
