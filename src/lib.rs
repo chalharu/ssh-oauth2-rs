@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{engine, Engine};
 use pam::{
     constants::{PamFlag, PamResultCode, PAM_PROMPT_ECHO_OFF, PAM_TEXT_INFO},
@@ -52,42 +52,58 @@ enum JsonResult<T: Sized> {
     },
 }
 
+struct Argument<'a> {
+    device_authorize_url: &'a str,
+    token_url: &'a str,
+    client_id: &'a str,
+}
+
+impl Argument<'_> {
+    fn unwrap_args<'a>(args: &HashMap<&str, &'a str>, key: &str) -> Result<&'a str> {
+        match args.get(key) {
+            Some(value) => Ok(value),
+            None => Err(anyhow!("Invalid argument: {}", key)),
+        }
+    }
+}
+
+impl<'a> TryFrom<Vec<&'a CStr>> for Argument<'a> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Vec<&'a CStr>) -> Result<Self, Self::Error> {
+        let args: HashMap<&str, &str> = value
+            .into_iter()
+            .map(|s: &CStr| -> Result<_> {
+                let mut parts = s.to_str()?.splitn(2, '=');
+                Ok((parts.next().unwrap(), parts.next().unwrap_or("")))
+            })
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(Self {
+            device_authorize_url: Self::unwrap_args(&args, "device_authorize_url")?,
+            token_url: Self::unwrap_args(&args, "token_url")?,
+            client_id: Self::unwrap_args(&args, "client_id")?,
+        })
+    }
+}
+
 impl PamHooks for PamOauth2 {
     fn sm_authenticate(pamh: &mut PamHandle, args: Vec<&CStr>, _flags: PamFlag) -> PamResultCode {
-        let args: Vec<_> = args.iter().map(|s| s.to_string_lossy()).collect();
-        let args: HashMap<&str, &str> = args
-            .iter()
-            .map(|s| {
-                let mut parts = s.splitn(2, '=');
-                (parts.next().unwrap(), parts.next().unwrap_or(""))
-            })
-            .collect();
-
-        let device_authorize_url: &str = match args.get("device_authorize_url") {
-            Some(device_authorize_url) => device_authorize_url,
-            None => return PamResultCode::PAM_AUTH_ERR,
-        };
-        let token_url: &str = match args.get("token_url") {
-            Some(token_url) => token_url,
-            None => return PamResultCode::PAM_AUTH_ERR,
-        };
-        let client_id: &str = match args.get("client_id") {
-            Some(client_id) => client_id,
-            None => return PamResultCode::PAM_AUTH_ERR,
-        };
+        let args = pam_try!(Argument::try_from(args), PamResultCode::PAM_AUTH_ERR);
 
         let conv = pam_try!(pamh.get_item::<pam::conv::Conv>()).unwrap();
 
-        let post_data = format!("client_id={}&scope=openid%20profile%20offline_access", client_id);
-        let result: DeviceAuth = match issue_post(device_authorize_url, post_data) {
+        let post_data = format!(
+            "client_id={}&scope=openid%20profile%20offline_access",
+            args.client_id
+        );
+        let result: DeviceAuth = match issue_post(args.device_authorize_url, post_data) {
             Ok(value) => value,
             Err(err) => {
                 eprintln!("Device authorize error: {}", err);
                 return PamResultCode::PAM_AUTH_ERR;
             }
         };
-
-        eprintln!("auth: {} {}", result.user_code, result.device_code);
 
         let code = pam_try!(
             QrCode::new(&result.verification_uri_complete),
@@ -109,12 +125,12 @@ impl PamHooks for PamOauth2 {
 
         let post_data = format!(
             "device_code={}&grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id={}",
-            result.device_code, client_id
+            result.device_code, args.client_id
         );
 
         let sleep = Duration::from_secs(result.interval.try_into().unwrap());
         for _ in 0..(result.expires_in / result.interval) {
-            match issue_post(token_url, &post_data) as Result<JsonResult<Token>> {
+            match issue_post(args.token_url, &post_data) as Result<JsonResult<Token>> {
                 Ok(JsonResult::Ok(token)) => {
                     let decoded = pam_try!(
                         engine::general_purpose::STANDARD.decode(pam_try!(token
@@ -153,7 +169,6 @@ impl PamHooks for PamOauth2 {
                         pam_try!(pamh.set_item_str(user));
                     }
 
-                    eprintln!("OAuth2 Device flow successed");
                     return PamResultCode::PAM_SUCCESS;
                 }
                 Ok(JsonResult::Err {
