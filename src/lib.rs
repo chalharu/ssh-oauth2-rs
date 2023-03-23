@@ -160,11 +160,17 @@ impl PamHooks for PamOauth2 {
                     error,
                     error_description,
                 }) => {
-                    eprintln!(
-                        "{}",
-                        error_description
-                            .map_or_else(|| error.to_string(), |d| format!("{}: {}", error, d))
-                    );
+                    if error == "authorization_declined"
+                        || error == "bad_verification_code"
+                        || error == "expired_token"
+                    {
+                        eprintln!(
+                            "{}",
+                            error_description
+                                .map_or_else(|| error.to_string(), |d| format!("{}: {}", error, d))
+                        );
+                        return PamResultCode::PAM_AUTH_ERR;
+                    }
                 }
                 Err(e) => {
                     eprintln!("{}", e);
