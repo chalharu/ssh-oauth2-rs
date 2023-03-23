@@ -23,7 +23,7 @@ RUN cargo build --release --config net.git-fetch-with-cli=true && \
 
 FROM alpine:3.17.2
 
-RUN apk --no-cache add openssh-server openssh-server-pam sed linux-pam libqrencode libssl3 && \
+RUN apk --no-cache add openssh-server openssh-server-pam sed linux-pam libqrencode libssl3 libgcc && \
   function add_sshd_config() { \
     sed -zri 's/\n'"$1"'\s+[^\n]*/\n'"$1 $2"'/; t; q1;' /etc/ssh/sshd_config || \
     sed -zri 's/\n#\s*'"$1"'\s+[^\n]*/\n'"$1 $2"'/; t; q1;' /etc/ssh/sshd_config || \

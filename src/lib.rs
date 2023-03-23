@@ -7,7 +7,10 @@ use pam::{
     pam_try,
 };
 use qrcode::{render::unicode, QrCode};
-use reqwest::blocking::Client;
+use reqwest::{
+    blocking::{Body, Client},
+    header::{ACCEPT, CONTENT_TYPE},
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use std::{
@@ -75,7 +78,7 @@ impl PamHooks for PamOauth2 {
 
         let conv = pam_try!(pamh.get_item::<pam::conv::Conv>()).unwrap();
 
-        let post_data = format!("client_id={}&scope=openid profile", client_id);
+        let post_data = format!("client_id={}&scope=openid%20profile", client_id);
         let result: DeviceAuth = match issue_post(device_authorize_url, post_data) {
             Ok(value) => value,
             Err(err) => {
@@ -172,10 +175,17 @@ impl PamHooks for PamOauth2 {
 
 fn issue_post<S: Into<String>, T: DeserializeOwned>(url: &str, body: S) -> Result<T> {
     let client = Client::builder().timeout(Duration::from_secs(15)).build()?;
-    let response = client.post(url).body(body.into()).send()?;
-    let text = response.text()?;
+    let body_data = Body::from(body.into());
     eprintln!("----------------------------------------------------------");
     eprintln!("url: {}", url);
+    eprintln!("body_data: {:?}", body_data);
+    let response = client
+        .post(url)
+        .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .header(ACCEPT, "application/json")
+        .body(body_data)
+        .send()?;
+    let text = response.text()?;
     eprintln!("----------------------------------------------------------");
     eprintln!("{}", text);
     eprintln!("----------------------------------------------------------");
