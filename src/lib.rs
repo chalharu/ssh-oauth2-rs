@@ -78,7 +78,7 @@ impl PamHooks for PamOauth2 {
 
         let conv = pam_try!(pamh.get_item::<pam::conv::Conv>()).unwrap();
 
-        let post_data = format!("client_id={}&scope=openid%20profile", client_id);
+        let post_data = format!("client_id={}&scope=openid%20profile%20offline_access", client_id);
         let result: DeviceAuth = match issue_post(device_authorize_url, post_data) {
             Ok(value) => value,
             Err(err) => {
