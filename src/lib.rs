@@ -128,7 +128,6 @@ impl PamHooks for PamOauth2 {
                         serde_json::from_slice::<'_, Value>(&decoded),
                         PamResultCode::PAM_AUTH_ERR
                     );
-                    eprintln!("id_token: {:?}", id_token);
 
                     let preferred_username = pam_try!(pam_try!(id_token
                         .get("preferred_username")
@@ -136,13 +135,13 @@ impl PamHooks for PamOauth2 {
                     .as_str()
                     .ok_or(PamResultCode::PAM_AUTH_ERR));
 
-                    eprintln!("preferred_username: {}", preferred_username);
-
                     if let Some(user) = pam_try!(pamh.get_item::<User>()) {
-                        eprintln!("user: {:?}", user);
-                        if preferred_username
-                            != pam_try!(user.to_str(), PamResultCode::PAM_AUTH_ERR)
-                        {
+                        let user = pam_try!(user.to_str(), PamResultCode::PAM_AUTH_ERR);
+                        if preferred_username != user {
+                            eprintln!(
+                                "username unmatch: [preferred_username]{}, [pam_user]{}",
+                                preferred_username, user
+                            );
                             return PamResultCode::PAM_AUTH_ERR;
                         }
                     } else {
@@ -154,6 +153,7 @@ impl PamHooks for PamOauth2 {
                         pam_try!(pamh.set_item_str(user));
                     }
 
+                    eprintln!("OAuth2 Device flow successed");
                     return PamResultCode::PAM_SUCCESS;
                 }
                 Ok(JsonResult::Err {
