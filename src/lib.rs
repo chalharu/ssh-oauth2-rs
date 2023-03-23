@@ -116,10 +116,12 @@ impl PamHooks for PamOauth2 {
         for _ in 0..(result.expires_in / result.interval) {
             match issue_post(token_url, &post_data) as Result<JsonResult<Token>> {
                 Ok(JsonResult::Ok(token)) => {
+                    eprintln!("id_token: {}", token.id_token);
                     let decoded = pam_try!(
                         engine::general_purpose::STANDARD.decode(token.id_token),
                         PamResultCode::PAM_AUTH_ERR
                     );
+                    eprintln!("decoded: {:?}", decoded);
                     let id_token = pam_try!(
                         serde_json::from_slice::<'_, Value>(&decoded),
                         PamResultCode::PAM_AUTH_ERR
