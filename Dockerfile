@@ -1,6 +1,6 @@
 FROM alpine:3.17.2
 
-RUN apk --no-cache add linux-pam-dev libqrencode-dev gcc libc-dev openssl-dev curl
+RUN apk --no-cache add linux-pam-dev libqrencode-dev gcc libc-dev openssl-dev curl git
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 
 ENV PATH $PATH:/root/.cargo/bin
@@ -10,7 +10,7 @@ RUN mkdir /root/src
 WORKDIR /root/src
 ADD ./ /root/src
 
-RUN cargo build --release --quiet && \
+RUN cargo build --release --config net.git-fetch-with-cli=true && \
     strip target/release/libpam_oauth2_df.so
 
 FROM alpine:3.17.2
