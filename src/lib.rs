@@ -1,7 +1,7 @@
 use anyhow::Result;
 use base64::{engine, Engine};
 use pam::{
-    constants::{PamFlag, PamResultCode, PAM_TEXT_INFO},
+    constants::{PamFlag, PamResultCode, PAM_PROMPT_ECHO_OFF, PAM_TEXT_INFO},
     items::User,
     module::{PamHandle, PamHooks},
     pam_try,
@@ -105,7 +105,7 @@ impl PamHooks for PamOauth2 {
                 result.verification_uri_complete, qr_code
             )
         ));
-        //pam_try!(conv.send(PAM_PROMPT_ECHO_ON, "Press Enter to continue:"));
+        pam_try!(conv.send(PAM_PROMPT_ECHO_OFF, "Press Enter to continue:"));
 
         let post_data = format!(
             "device_code={}&grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id={}",
@@ -116,7 +116,6 @@ impl PamHooks for PamOauth2 {
         for _ in 0..(result.expires_in / result.interval) {
             match issue_post(token_url, &post_data) as Result<JsonResult<Token>> {
                 Ok(JsonResult::Ok(token)) => {
-                    eprintln!("id_token: {}", token.id_token);
                     let decoded = pam_try!(
                         engine::general_purpose::STANDARD.decode(pam_try!(token
                             .id_token
@@ -125,7 +124,6 @@ impl PamHooks for PamOauth2 {
                             .ok_or(PamResultCode::PAM_AUTH_ERR))),
                         PamResultCode::PAM_AUTH_ERR
                     );
-                    eprintln!("decoded: {:?}", decoded);
                     let id_token = pam_try!(
                         serde_json::from_slice::<'_, Value>(&decoded),
                         PamResultCode::PAM_AUTH_ERR
@@ -182,9 +180,6 @@ impl PamHooks for PamOauth2 {
 fn issue_post<S: Into<String>, T: DeserializeOwned>(url: &str, body: S) -> Result<T> {
     let client = Client::builder().timeout(Duration::from_secs(15)).build()?;
     let body_data = Body::from(body.into());
-    eprintln!("----------------------------------------------------------");
-    eprintln!("url: {}", url);
-    eprintln!("body_data: {:?}", body_data);
     let response = client
         .post(url)
         .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
@@ -192,9 +187,6 @@ fn issue_post<S: Into<String>, T: DeserializeOwned>(url: &str, body: S) -> Resul
         .body(body_data)
         .send()?;
     let text = response.text()?;
-    eprintln!("----------------------------------------------------------");
-    eprintln!("{}", text);
-    eprintln!("----------------------------------------------------------");
     Ok(serde_json::from_str(text.as_str())?)
 }
 
