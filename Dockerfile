@@ -6,16 +6,17 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH $PATH:/root/.cargo/bin
 ENV RUSTFLAGS "-C target-feature=-crt-static"
 
-RUN mkdir -p /root/src/src
+RUN mkdir -p /root/src
 WORKDIR /root/src
 
-COPY docker/dummy.rs src/lib.rs
+COPY docker/dummy.rs ./
 COPY Cargo.toml ./
 
+RUN sed -i 's#src/main.rs#dummy.rs#' Cargo.toml
 RUN cargo build --release --config net.git-fetch-with-cli=true
-RUN rm -rf /root/src/src
+RUN sed -i 's#dummy.rs#src/main.rs#' Cargo.toml
 
-COPY ./ /root/src
+COPY . .
 
 RUN cargo build --release --config net.git-fetch-with-cli=true && \
     strip target/release/libpam_oauth2_df.so
