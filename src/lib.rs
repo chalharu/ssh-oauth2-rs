@@ -1,7 +1,7 @@
 use anyhow::Result;
 use base64::{engine, Engine};
 use pam::{
-    constants::{PamFlag, PamResultCode, PAM_PROMPT_ECHO_OFF},
+    constants::{PamFlag, PamResultCode, PAM_TEXT_INFO},
     items::User,
     module::{PamHandle, PamHooks},
     pam_try,
@@ -82,7 +82,7 @@ impl PamHooks for PamOauth2 {
         let result: DeviceAuth = match issue_post(device_authorize_url, post_data) {
             Ok(value) => value,
             Err(err) => {
-                eprintln!("Device authorize error: {}", err.to_string());
+                eprintln!("Device authorize error: {}", err);
                 return PamResultCode::PAM_AUTH_ERR;
             }
         };
@@ -99,7 +99,7 @@ impl PamHooks for PamOauth2 {
             .light_color(unicode::Dense1x2::Dark)
             .build();
         pam_try!(conv.send(
-            PAM_PROMPT_ECHO_OFF,
+            PAM_TEXT_INFO,
             &format!(
                 "\n\nPlease login at {} or scan the QRCode below:\n\n{}",
                 result.verification_uri_complete, qr_code
@@ -118,7 +118,11 @@ impl PamHooks for PamOauth2 {
                 Ok(JsonResult::Ok(token)) => {
                     eprintln!("id_token: {}", token.id_token);
                     let decoded = pam_try!(
-                        engine::general_purpose::STANDARD.decode(token.id_token),
+                        engine::general_purpose::STANDARD.decode(pam_try!(token
+                            .id_token
+                            .split('.')
+                            .nth(1)
+                            .ok_or(PamResultCode::PAM_AUTH_ERR))),
                         PamResultCode::PAM_AUTH_ERR
                     );
                     eprintln!("decoded: {:?}", decoded);
@@ -157,11 +161,11 @@ impl PamHooks for PamOauth2 {
                     eprintln!(
                         "{}",
                         error_description
-                            .map_or_else(|| format!("{}", error), |d| format!("{}: {}", error, d))
+                            .map_or_else(|| error.to_string(), |d| format!("{}: {}", error, d))
                     );
                 }
                 Err(e) => {
-                    eprintln!("{}", e.to_string());
+                    eprintln!("{}", e);
                 }
             }
             std::thread::sleep(sleep);
